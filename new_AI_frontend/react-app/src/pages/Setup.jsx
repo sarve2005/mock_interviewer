@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Upload, Sliders, Play, FileText, CheckCircle } from "lucide-react";
 import api from "../api";
+import { getFriendlyErrorMessage } from "../utils/errorUtils";
 
 export default function Setup() {
     const [file, setFile] = useState(null);
@@ -47,7 +48,7 @@ export default function Setup() {
 
         } catch (err) {
             console.error(err);
-            setError("Failed to start interview: " + (err.response?.data?.detail || err.message));
+            setError(getFriendlyErrorMessage(err));
         } finally {
             setLoading(false);
         }

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { Lock, Mail } from "lucide-react";
+import { getFriendlyErrorMessage } from "../utils/errorUtils";
 
 export default function Login() {
     const [email, setEmail] = useState("");
@@ -23,7 +24,7 @@ export default function Login() {
             }
             navigate("/");
         } catch (err) {
-            setError("Failed to " + (isLogin ? "login" : "create account") + ": " + err.message);
+            setError(getFriendlyErrorMessage(err));
         }
     }
 

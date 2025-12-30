@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { getFriendlyErrorMessage } from "../utils/errorUtils";
 
 export default function useAudioRecorder() {
     const [isRecording, setIsRecording] = useState(false);
@@ -36,7 +37,7 @@ export default function useAudioRecorder() {
             setAudioBlob(null);
         } catch (err) {
             console.error("Error accessing microphone:", err);
-            alert("Could not access microphone." + err.message);
+            alert(getFriendlyErrorMessage(err));
         }
     };
 

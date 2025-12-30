@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import api from "../api";
 import useAudioRecorder from "../hooks/useAudioRecorder";
 import { Mic, Square, Play, Send, Volume2 } from "lucide-react";
+import { getFriendlyErrorMessage } from "../utils/errorUtils";
 
 export default function Interview() {
     const navigate = useNavigate();
@@ -35,7 +36,7 @@ export default function Interview() {
             }
         } catch (err) {
             console.error(err);
-            alert("Error fetching question");
+            alert(getFriendlyErrorMessage(err));
         } finally {
             setIsQuestionLoading(false);
         }
@@ -74,7 +75,7 @@ export default function Interview() {
             }
         } catch (err) {
             console.error("STT Error", err);
-            alert("Transcription failed");
+            alert(getFriendlyErrorMessage(err));
         } finally {
             setProcessingStt(false);
         }
@@ -95,7 +96,7 @@ export default function Interview() {
             fetchQuestion();
         } catch (err) {
             console.error(err);
-            alert("Failed to submit answer");
+            alert(getFriendlyErrorMessage(err));
         } finally {
             setLoading(false);
         }
