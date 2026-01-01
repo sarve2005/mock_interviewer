@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api";
-import useAudioRecorder from "../hooks/useAudioRecorder";
+import useSpeechRecognition from "../hooks/useSpeechRecognition";
 import { Mic, Square, Play, Send, Volume2 } from "lucide-react";
 import { getFriendlyErrorMessage } from "../utils/errorUtils";
 
@@ -9,13 +9,47 @@ export default function Interview() {
     const navigate = useNavigate();
     const sessionId = localStorage.getItem("session_id");
     const [question, setQuestion] = useState("");
+
+    // We'll manage the answer via the hook's transcript + manual edits
+    // However, the hook controls its own transcript state. 
+    // To allow dual editing (typing + voice), we sync them.
+    // For simplicity with this hook, we can just use the hook's transcript as the source of truth 
+    // OR sync them in useEffect. Let's sync hook transcript to a local state if user types.
+    // Actually, the hook provided `setTranscript`. We can just use the hook's values directly or wrap them.
+    // Let's use a local state `answer` and keep it in sync.
     const [answer, setAnswer] = useState("");
+
     const [loading, setLoading] = useState(false);
-    const [processingStt, setProcessingStt] = useState(false);
     const [isQuestionLoading, setIsQuestionLoading] = useState(true);
 
-    const { isRecording, startRecording, stopRecording, audioBlob, audioUrl } = useAudioRecorder();
-    const audioRef = useRef(null);
+    // Web Speech Hook
+    const {
+        isListening,
+        transcript,
+        interimTranscript,
+        startListening,
+        stopListening,
+        resetTranscript,
+        setTranscript: setHookTranscript
+    } = useSpeechRecognition();
+
+    const audioRef = useRef(null); // Kept if we need it, but mostly for TTS fallback if we used audio files
+
+    // Sync hook transcript to local answer state
+    useEffect(() => {
+        // When transcript updates (from voice), update answer.
+        // We need to be careful not to overwrite user typing if they are typing concurrently.
+        // But usually voice writes to end.
+        // Simplified: The UI will display `answer + interim`. 
+        // Wait, the hook accumulates `transcript`.
+        // Let's just use the hook's setTranscript as our main setter for 'answer'.
+        setAnswer(transcript);
+    }, [transcript]);
+
+    const handleManualChange = (e) => {
+        setAnswer(e.target.value);
+        setHookTranscript(e.target.value);
+    };
 
     // Fetch next question
     const fetchQuestion = async () => {
@@ -27,12 +61,15 @@ export default function Interview() {
             }
             const res = await api.get(`/next-question/${sessionId}`);
             if (!res.data.question) {
-                // No more questions
                 navigate("/feedback");
             } else {
                 setQuestion(res.data.question);
                 setAnswer("");
-                playTts(res.data.question);
+                setHookTranscript(""); // Reset voice transcript
+                resetTranscript();
+
+                // Slight delay to allow UI to settle before speaking
+                setTimeout(() => playTts(res.data.question), 500);
             }
         } catch (err) {
             console.error(err);
@@ -42,47 +79,29 @@ export default function Interview() {
         }
     };
 
-    // Play TTS
-    const playTts = async (text) => {
-        try {
-            const res = await api.post("/tts", { text }, { responseType: "blob" });
-            const url = URL.createObjectURL(res.data);
-            if (audioRef.current) {
-                audioRef.current.src = url;
-                audioRef.current.play();
-            }
-        } catch (err) {
-            console.error("TTS error", err);
+    // Browser TTS
+    const playTts = (text) => {
+        if (!("speechSynthesis" in window)) {
+            console.warn("Browser does not support text-to-speech.");
+            return;
         }
-    };
+        // Cancel any ongoing speech
+        window.speechSynthesis.cancel();
 
-    // Process STT when recording stops (audioBlob changes)
-    useEffect(() => {
-        if (audioBlob) {
-            handleStt(audioBlob);
-        }
-    }, [audioBlob]);
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = "en-US";
+        utterance.rate = 1.0;
+        utterance.pitch = 1.0;
 
-    const handleStt = async (blob) => {
-        setProcessingStt(true);
-        try {
-            const formData = new FormData();
-            formData.append("file", blob, "answer.wav");
-
-            const res = await api.post("/stt", formData);
-            if (res.data.text) {
-                setAnswer((prev) => (prev ? prev + " " + res.data.text : res.data.text));
-            }
-        } catch (err) {
-            console.error("STT Error", err);
-            alert(getFriendlyErrorMessage(err));
-        } finally {
-            setProcessingStt(false);
-        }
+        window.speechSynthesis.speak(utterance);
     };
 
     const handleSubmit = async () => {
-        if (!answer.trim()) {
+        // Combine final transcript with any interim if valid, but usually we just take 'answer'
+        // which is synced to 'transcript'.
+        const finalAnswer = answer.trim();
+
+        if (!finalAnswer) {
             alert("Please provide an answer.");
             return;
         }
@@ -91,7 +110,7 @@ export default function Interview() {
             await api.post("/submit-answer", {
                 session_id: sessionId,
                 question: question,
-                answer: answer
+                answer: finalAnswer
             });
             fetchQuestion();
         } catch (err) {
@@ -104,6 +123,8 @@ export default function Interview() {
 
     useEffect(() => {
         fetchQuestion();
+        // Cleanup TTS on unmount
+        return () => window.speechSynthesis.cancel();
     }, []);
 
     if (isQuestionLoading && !question) {
@@ -134,41 +155,40 @@ export default function Interview() {
                     >
                         <Volume2 size={16} /> Replay Audio
                     </button>
-                    <audio ref={audioRef} className="hidden" />
                 </div>
 
                 {/* Answer Section */}
                 <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl space-y-4">
                     <div className="flex justify-between items-center mb-2">
                         <h3 className="font-semibold text-slate-300">Your Answer</h3>
-                        {isRecording && <span className="text-red-400 animate-pulse text-sm font-bold flex items-center gap-2">● Recording...</span>}
+                        {isListening && <span className="text-red-400 animate-pulse text-sm font-bold flex items-center gap-2">● Listening...</span>}
                     </div>
 
-                    <textarea
-                        className="w-full bg-slate-900 text-white p-4 rounded-xl border border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none resize-none h-48 transition"
-                        placeholder="Type your answer or use the microphone..."
-                        value={answer}
-                        onChange={(e) => setAnswer(e.target.value)}
-                    />
+                    <div className="relative">
+                        <textarea
+                            className="w-full bg-slate-900 text-white p-4 rounded-xl border border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none resize-none h-48 transition"
+                            placeholder="Type your answer or use the microphone..."
+                            value={answer + (isListening ? (answer ? " " : "") + interimTranscript : "")}
+                            onChange={handleManualChange}
+                        />
+                    </div>
 
                     <div className="flex items-center gap-4">
                         <button
-                            onClick={isRecording ? stopRecording : startRecording}
+                            onClick={isListening ? stopListening : startListening}
                             className={`flex items-center justify-center gap-2 px-6 py-3 rounded-xl fount-medium transition transform hover:scale-105
-                ${isRecording
+                ${isListening
                                     ? 'bg-red-500/20 text-red-400 border border-red-500/50 hover:bg-red-500/30'
                                     : 'bg-slate-700 text-white hover:bg-slate-600'
                                 }`}
                         >
-                            {isRecording ? <><Square size={20} fill="currentColor" /> Stop</> : <><Mic size={20} /> Record Answer</>}
+                            {isListening ? <><Square size={20} fill="currentColor" /> Stop</> : <><Mic size={20} /> Record Answer</>}
                         </button>
-
-                        {processingStt && <span className="text-slate-400 text-sm animate-pulse">Transcribing...</span>}
 
                         <div className="ml-auto">
                             <button
                                 onClick={handleSubmit}
-                                disabled={loading || isRecording}
+                                disabled={loading || isListening}
                                 className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-3 rounded-xl font-bold shadow-lg shadow-blue-500/20 transition transform hover:-translate-y-0.5 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {loading ? "Submitting..." : <>Submit <Send size={18} /></>}

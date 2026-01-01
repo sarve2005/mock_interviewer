@@ -163,6 +163,9 @@ export default function Setup() {
                             <>Start Interview <Play size={20} fill="currentColor" /></>
                         )}
                     </button>
+                    <p className="text-center text-sm text-slate-500 mt-4">
+                        Note: Starting the interview involves generating custom questions and may take 20-30 seconds.
+                    </p>
                 </div>
             </div>
         </div>

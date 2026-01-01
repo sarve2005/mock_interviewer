@@ -1,8 +1,10 @@
 from fastapi import FastAPI, UploadFile, File, Response
-from backend.services import resume_service, question_service, interview_service, feedback_service, tts_service, stt_service
+from fastapi.concurrency import run_in_threadpool
+from backend.services import resume_service, question_service, interview_service, feedback_service
 from backend.vectorstore import faiss_store
 from backend.models.schemas import *
 from pydantic import BaseModel
+from contextlib import asynccontextmanager
 
 class AnswerInput(BaseModel):
     session_id: str
@@ -11,13 +13,27 @@ class AnswerInput(BaseModel):
 
 import shutil, os
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Preload the generic embedding model to avoid first-request latency
+    print("Preloading FastEmbed model...")
+    # This might block, but it's acceptable during startup
+    await run_in_threadpool(faiss_store.get_embedder)
+    print("FastEmbed model loaded successfully.")
+    yield
+
+app = FastAPI(lifespan=lifespan)
 
 from fastapi.middleware.cors import CORSMiddleware
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins for now, or configure from env
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "https://mock-interviewer-frontend.vercel.app",
+        "https://mock-interviewer-77229.web.app"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -34,64 +50,63 @@ async def upload(file: UploadFile = File(...)):
     path = f"{UPLOADS}/{file.filename}"
     with open(path, "wb") as f:
         shutil.copyfileobj(file.file, f)
-    text = resume_service.load_pdf_text(path)
+    
+    # Run blocking PDF processing in threadpool
+    text = await run_in_threadpool(resume_service.load_pdf_text, path)
+    
     chunks = [text[i:i+1000] for i in range(0, len(text), 800)]
     global vector_index, doc_chunks
-    vector_index, doc_chunks = faiss_store.build_store(chunks)
+    # Run heavy FAISS build in threadpool
+    vector_index, doc_chunks = await run_in_threadpool(faiss_store.build_store, chunks)
     return {"status": "ok"}
 
 
 @app.post("/start-interview")
 async def start(req: StartInterview):
-    qs = question_service.generate_questions_bulk(
+    # Generating questions involves LLM calls (blocking)
+    qs = await run_in_threadpool(
+        question_service.generate_questions_bulk,
         vector_index, doc_chunks, req.mode, req.num_questions
     )
-    sid = interview_service.create_interview(qs, req.mode)
+    # Creating interview involves Firestore (blocking)
+    sid = await run_in_threadpool(interview_service.create_interview, qs, req.mode)
     return {"session_id": sid}
 
 
 @app.get("/next-question/{sid}")
 async def next_q(sid: str):
-    q = interview_service.next_question(sid)
+    # Firestore read
+    q = await run_in_threadpool(interview_service.next_question, sid)
     return {"question": q}
 
 @app.post("/submit-answer")
 async def submit_ans(d: AnswerInput):
-    interview_service.store_answer(d.session_id, d.question, d.answer)
+    # Firestore write
+    await run_in_threadpool(interview_service.store_answer, d.session_id, d.question, d.answer)
     return {"status": "ok"}
 
 
 
 @app.post("/technical/scores", response_model=ScoreResponse)
 async def tech_scores(d: QAInput):
-    return {"scores": feedback_service.technical_scores(d.question, d.answer)}
+    scores = await run_in_threadpool(feedback_service.technical_scores, d.question, d.answer)
+    return {"scores": scores}
 
 @app.post("/technical/summary", response_model=SummaryResponse)
 async def tech_summary(d: QAInput):
-    return {"summary": feedback_service.technical_summary(d.question, d.answer)}
+    summary = await run_in_threadpool(feedback_service.technical_summary, d.question, d.answer)
+    return {"summary": summary}
 
 
 @app.post("/technical/flags", response_model=FlagsResponse)
 async def tech_flags(d: QAInput):
-    return {"flags": feedback_service.technical_flags(d.question, d.answer)}
-
-
-@app.post("/tts")
-async def tts_endpoint(d: TTSInput):
-    audio = tts_service.text_to_speech_bytes(d.text)
-    return Response(content=audio, media_type="audio/mpeg")
-
-
-@app.post("/stt")
-async def stt_endpoint(file: UploadFile = File(...)):
-    # UploadFile.file is a SpooledTemporaryFile which is file-like
-    text = stt_service.transcribe_audio(file.file)
-    return {"text": text}
+    flags = await run_in_threadpool(feedback_service.technical_flags, d.question, d.answer)
+    return {"flags": flags}
 
 
 @app.get("/session/{sid}")
 async def get_session(sid: str):
-    answers = interview_service.get_answers(sid)
+    answers = await run_in_threadpool(interview_service.get_answers, sid)
     # We might want to return more info if needed
     return {"answers": answers}
 

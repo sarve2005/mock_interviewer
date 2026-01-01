@@ -4,24 +4,17 @@ uvicorn
 pydantic
 python-dotenv
 
-# ---------- LLM (Gemini) ----------
-google-genai
-
-# ---------- Vector Search ----------
+# ---------- AI / ML (Lightweight) ----------
+fastembed
 faiss-cpu
-sentence-transformers
 numpy
 
-# ---------- Resume Parsing ----------
+# ---------- LLM & APIs ----------
+google-genai
+
+
+# ---------- Utilities ----------
 pypdf
-
-# ---------- Text-to-Speech ----------
-elevenlabs
-
-# ---------- Frontend ----------
-streamlit
-requests
-
-
 python-multipart
 firebase-admin
+requests
