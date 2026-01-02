@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Upload, Sliders, Play, FileText, CheckCircle } from "lucide-react";
+import * as icons from "lucide-react";
 import api from "../api";
 import { getFriendlyErrorMessage } from "../utils/errorUtils";
 
@@ -56,7 +56,14 @@ export default function Setup() {
     return (
         <div className="min-h-screen bg-slate-900 text-white p-8">
             <div className="max-w-2xl mx-auto">
-                <header className="mb-12 text-center">
+                <header className="mb-12 text-center relative">
+                    <button
+                        onClick={() => navigate("/analytics")}
+                        className="absolute right-0 top-0 p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition"
+                        title="View Analytics"
+                    >
+                        <icons.BarChart2 size={24} />
+                    </button>
                     <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent mb-4">
                         AI Interview Setup
                     </h1>
@@ -73,7 +80,7 @@ export default function Setup() {
 
                     <section className="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-lg">
                         <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                            <FileText className="text-blue-400" /> Upload Resume
+                            <icons.FileText className="text-blue-400" /> Upload Resume
                         </h2>
                         <div className="relative border-2 border-dashed border-slate-600 rounded-xl p-8 transition hover:border-blue-500 hover:bg-slate-700/30 group text-center cursor-pointer">
                             <input
@@ -85,13 +92,13 @@ export default function Setup() {
                             <div className="flex flex-col items-center justify-center gap-3">
                                 {file ? (
                                     <>
-                                        <CheckCircle className="w-12 h-12 text-green-400" />
+                                        <icons.CheckCircle className="w-12 h-12 text-green-400" />
                                         <p className="font-medium text-green-300">{file.name}</p>
                                         <p className="text-sm text-slate-500">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
                                     </>
                                 ) : (
                                     <>
-                                        <Upload className="w-12 h-12 text-slate-500 group-hover:text-blue-400 transition" />
+                                        <icons.Upload className="w-12 h-12 text-slate-500 group-hover:text-blue-400 transition" />
                                         <p className="text-slate-300 font-medium">Click to upload PDF</p>
                                         <p className="text-sm text-slate-500">Max size 10MB</p>
                                     </>
@@ -103,7 +110,7 @@ export default function Setup() {
 
                     <section className="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-lg">
                         <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
-                            <Sliders className="text-indigo-400" /> Configuration
+                            <icons.Sliders className="text-indigo-400" /> Configuration
                         </h2>
 
                         <div className="space-y-6">
@@ -159,7 +166,7 @@ export default function Setup() {
                         {loading ? (
                             <>Processing...</>
                         ) : (
-                            <>Start Interview <Play size={20} fill="currentColor" /></>
+                            <>Start Interview <icons.Play size={20} fill="currentColor" /></>
                         )}
                     </button>
                     <p className="text-center text-sm text-slate-500 mt-4">

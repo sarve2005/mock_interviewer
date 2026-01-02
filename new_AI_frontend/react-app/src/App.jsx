@@ -8,6 +8,8 @@ const Login = lazy(() => import("./pages/Login"));
 const Setup = lazy(() => import("./pages/Setup"));
 const Interview = lazy(() => import("./pages/Interview"));
 const Feedback = lazy(() => import("./pages/Feedback"));
+const Analytics = lazy(() => import("./pages/Analytics"));
+const SessionDetails = lazy(() => import("./pages/SessionDetails"));
 
 function App() {
   return (
@@ -37,6 +39,22 @@ function App() {
               element={
                 <PrivateRoute>
                   <Feedback />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/analytics"
+              element={
+                <PrivateRoute>
+                  <Analytics />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/analytics/:sessionId"
+              element={
+                <PrivateRoute>
+                  <SessionDetails />
                 </PrivateRoute>
               }
             />
