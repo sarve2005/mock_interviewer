@@ -75,13 +75,11 @@ async def start(req: StartInterview):
 
 @app.get("/next-question/{sid}")
 async def next_q(sid: str):
-    # Firestore read
     q = await run_in_threadpool(interview_service.next_question, sid)
     return {"question": q}
 
 @app.post("/submit-answer")
 async def submit_ans(d: AnswerInput):
-    # Firestore write
     await run_in_threadpool(interview_service.store_answer, d.session_id, d.question, d.answer)
     return {"status": "ok"}
 

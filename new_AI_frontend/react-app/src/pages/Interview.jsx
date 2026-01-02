@@ -10,19 +10,11 @@ export default function Interview() {
     const sessionId = localStorage.getItem("session_id");
     const [question, setQuestion] = useState("");
 
-    // We'll manage the answer via the hook's transcript + manual edits
-    // However, the hook controls its own transcript state. 
-    // To allow dual editing (typing + voice), we sync them.
-    // For simplicity with this hook, we can just use the hook's transcript as the source of truth 
-    // OR sync them in useEffect. Let's sync hook transcript to a local state if user types.
-    // Actually, the hook provided `setTranscript`. We can just use the hook's values directly or wrap them.
-    // Let's use a local state `answer` and keep it in sync.
     const [answer, setAnswer] = useState("");
 
     const [loading, setLoading] = useState(false);
     const [isQuestionLoading, setIsQuestionLoading] = useState(true);
 
-    // Web Speech Hook
     const {
         isListening,
         transcript,
@@ -33,16 +25,9 @@ export default function Interview() {
         setTranscript: setHookTranscript
     } = useSpeechRecognition();
 
-    const audioRef = useRef(null); // Kept if we need it, but mostly for TTS fallback if we used audio files
+    const audioRef = useRef(null);
 
-    // Sync hook transcript to local answer state
     useEffect(() => {
-        // When transcript updates (from voice), update answer.
-        // We need to be careful not to overwrite user typing if they are typing concurrently.
-        // But usually voice writes to end.
-        // Simplified: The UI will display `answer + interim`. 
-        // Wait, the hook accumulates `transcript`.
-        // Let's just use the hook's setTranscript as our main setter for 'answer'.
         setAnswer(transcript);
     }, [transcript]);
 
@@ -51,7 +36,6 @@ export default function Interview() {
         setHookTranscript(e.target.value);
     };
 
-    // Fetch next question
     const fetchQuestion = async () => {
         setIsQuestionLoading(true);
         try {
@@ -65,10 +49,9 @@ export default function Interview() {
             } else {
                 setQuestion(res.data.question);
                 setAnswer("");
-                setHookTranscript(""); // Reset voice transcript
+                setHookTranscript("");
                 resetTranscript();
 
-                // Slight delay to allow UI to settle before speaking
                 setTimeout(() => playTts(res.data.question), 500);
             }
         } catch (err) {
@@ -79,7 +62,6 @@ export default function Interview() {
         }
     };
 
-    // Browser TTS
     const playTts = (text) => {
         if (!("speechSynthesis" in window)) {
             console.warn("Browser does not support text-to-speech.");
@@ -97,8 +79,6 @@ export default function Interview() {
     };
 
     const handleSubmit = async () => {
-        // Combine final transcript with any interim if valid, but usually we just take 'answer'
-        // which is synced to 'transcript'.
         const finalAnswer = answer.trim();
 
         if (!finalAnswer) {
@@ -143,7 +123,7 @@ export default function Interview() {
                     <button onClick={() => navigate("/feedback")} className="hover:text-white transition">End Interview</button>
                 </header>
 
-                {/* Question Card */}
+
                 <div className="bg-slate-800 p-8 rounded-2xl shadow-xl border border-slate-700 relative overflow-hidden">
                     <div className="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
                     <h2 className="text-2xl font-bold mb-4">Current Question</h2>
@@ -157,7 +137,7 @@ export default function Interview() {
                     </button>
                 </div>
 
-                {/* Answer Section */}
+
                 <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl space-y-4">
                     <div className="flex justify-between items-center mb-2">
                         <h3 className="font-semibold text-slate-300">Your Answer</h3>

@@ -28,7 +28,6 @@ export default function Setup() {
         setLoading(true);
 
         try {
-            // 1. Upload Resume
             const formData = new FormData();
             formData.append("file", file);
 
@@ -36,7 +35,7 @@ export default function Setup() {
                 headers: { "Content-Type": "multipart/form-data" },
             });
 
-            // 2. Start Interview
+
             const res = await api.post("/start-interview", {
                 mode,
                 num_questions: numQuestions,
@@ -71,7 +70,7 @@ export default function Setup() {
                         </div>
                     )}
 
-                    {/* Section 1: Resume Upload */}
+
                     <section className="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-lg">
                         <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
                             <FileText className="text-blue-400" /> Upload Resume
@@ -101,7 +100,7 @@ export default function Setup() {
                         </div>
                     </section>
 
-                    {/* Section 2: Configuration */}
+
                     <section className="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-lg">
                         <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
                             <Sliders className="text-indigo-400" /> Configuration
